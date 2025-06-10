@@ -1,17 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// Fallback values - these should be replaced with your actual Supabase credentials
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
-
-// Check if we have valid credentials
-if (!supabaseUrl || supabaseUrl === 'https://your-project.supabase.co') {
-  console.warn('Supabase URL not configured. Please set VITE_SUPABASE_URL environment variable.')
-}
-
-if (!supabaseAnonKey || supabaseAnonKey === 'your-anon-key') {
-  console.warn('Supabase anon key not configured. Please set VITE_SUPABASE_ANON_KEY environment variable.')
-}
+const supabaseUrl = 'https://wbdzzqugyjomkrvukeuf.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiZHp6cXVneWpvbWtydnVrZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1NTk4MzUsImV4cCI6MjA2NTEzNTgzNX0.2shLruAPPMf0Ygxw0DVW59vBj_i_ttJ8690le7GFBPQ'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)

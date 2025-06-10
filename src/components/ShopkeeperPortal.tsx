@@ -6,6 +6,62 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Plus, Home, Package, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createShop, createDeliveryRequest, getDeliveryRequests, Shop, DeliveryRequest } from "@/services/database";
+import { supabase } from "@/lib/supabase"  // ✅ adjust if needed
+import { useState } from "react"
+
+const ShopkeeperPortal = ({ onBack }) => {
+  const [formData, setFormData] = useState({
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_address: "",
+    amount: "",
+    delivery_fee: "",
+  });
+
+  const handleSubmit = async () => {
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError || !userData?.user) {
+      alert("User not authenticated")
+      return
+    }
+
+    const uid = userData.user.id
+
+    const { error: insertError } = await supabase
+      .from("delivery_requests")
+      .insert({
+        shopkeeper_id: uid, // ✅ auto-insert UID
+        buyer_name: formData.buyer_name,
+        buyer_phone: formData.buyer_phone,
+        buyer_address: formData.buyer_address,
+        amount: parseFloat(formData.amount),
+        delivery_fee: parseFloat(formData.delivery_fee),
+        status: "pending",
+      })
+
+    if (insertError) {
+      alert("Insert failed: " + insertError.message)
+    } else {
+      alert("Delivery request posted ✅")
+    }
+  }
+
+  return (
+    <div className="p-4">
+      <h2>Shopkeeper Portal</h2>
+      {/* Input fields */}
+      <input placeholder="Buyer Name" onChange={e => setFormData({ ...formData, buyer_name: e.target.value })} />
+      <input placeholder="Phone" onChange={e => setFormData({ ...formData, buyer_phone: e.target.value })} />
+      <input placeholder="Address" onChange={e => setFormData({ ...formData, buyer_address: e.target.value })} />
+      <input placeholder="Amount" onChange={e => setFormData({ ...formData, amount: e.target.value })} />
+      <input placeholder="Delivery Fee" onChange={e => setFormData({ ...formData, delivery_fee: e.target.value })} />
+      <button onClick={handleSubmit}>Post Delivery</button>
+      <button onClick={onBack}>← Back</button>
+    </div>
+  )
+}
+
+export default ShopkeeperPortal
 
 interface ShopkeeperPortalProps {
   onBack: () => void;
@@ -85,16 +141,71 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.buyer_name || !formData.buyer_phone || !formData.delivery_address || !formData.total_amount) {
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!formData.buyer_name || !formData.buyer_phone || !formData.delivery_address || !formData.total_amount) {
+    toast({
+      title: "Error",
+      description: "Please fill in all required fields",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // 👇 Get UID from logged-in user
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError || !userData?.user) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "You must be logged in to post a request.",
         variant: "destructive"
       });
       return;
+    }
+
+    const uid = userData.user.id;
+
+    // 👇 Insert into delivery_requests table with UID
+    const newRequest = await createDeliveryRequest({
+      shopkeeper_id: uid,  // ✅ auto-injected securely
+      buyer_name: formData.buyer_name,
+      buyer_phone: formData.buyer_phone,
+      delivery_address: formData.delivery_address,
+      total_amount: parseFloat(formData.total_amount),
+      delivery_charge: parseFloat(formData.delivery_charge) || 30,
+      status: 'pending'
+    });
+
+    setRequests([newRequest, ...requests]);
+    setFormData({
+      buyer_name: "",
+      buyer_phone: "",
+      delivery_address: "",
+      total_amount: "",
+      delivery_charge: ""
+    });
+    setShowNewRequest(false);
+
+    toast({
+      title: "Success",
+      description: "Delivery request posted successfully!",
+    });
+  } catch (error) {
+    console.error('Error creating request:', error);
+    toast({
+      title: "Error",
+      description: "Failed to create delivery request. Please try again.",
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
     }
 
     setLoading(true);

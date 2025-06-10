@@ -31,7 +31,7 @@ const Index = () => {
             <img 
               src="/lovable-uploads/10e1395f-4d55-494f-a401-42d47838d2c8.png" 
               alt="Grozo" 
-              className="h-8"
+              className="h-12 w-auto object-contain"
             />
           </div>
         </div>
@@ -117,7 +117,7 @@ const Index = () => {
           <img 
             src="/lovable-uploads/10e1395f-4d55-494f-a401-42d47838d2c8.png" 
             alt="Grozo" 
-            className="h-6 mx-auto mb-4"
+            className="h-10 w-auto object-contain mx-auto mb-4"
           />
           <p className="text-slate-400">© 2024 Grozo. All rights reserved.</p>
         </div>

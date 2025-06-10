@@ -148,7 +148,7 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
               <img 
                 src="/lovable-uploads/10e1395f-4d55-494f-a401-42d47838d2c8.png" 
                 alt="Grozo" 
-                className="h-8"
+                className="h-12 w-auto object-contain"
               />
             </div>
             <div className="flex items-center space-x-4">

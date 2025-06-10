@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Phone, ShoppingCart } from "lucide-react";
+import { Phone, ShoppingCart, Home, Users, Settings } from "lucide-react";
 import BuyerPortal from "@/components/BuyerPortal";
 import ShopkeeperPortal from "@/components/ShopkeeperPortal";
 import DriverPortal from "@/components/DriverPortal";
@@ -27,12 +27,26 @@ const Index = () => {
       {/* Header */}
       <header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center">
+          <div className="flex items-center justify-between">
             <img 
               src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
               alt="Grozo" 
               className="h-20 md:h-24 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
             />
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
+                <Home className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">Home</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
+                <Users className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">About</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
+                <Settings className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">Support</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -50,7 +64,7 @@ const Index = () => {
           </p>
           <Button 
             size="lg" 
-            className="bg-green-500 hover:bg-green-600 text-white px-6 md:px-8 py-3 md:py-4 text-base md:text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
+            className="bg-green-500 hover:bg-green-600 text-white px-6 md:px-8 py-3 md:py-4 text-base md:text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto hover:scale-105"
             onClick={() => setSelectedPortal("buyer")}
           >
             Order Now
@@ -119,7 +133,11 @@ const Index = () => {
             alt="Grozo" 
             className="h-16 md:h-20 w-auto object-contain mx-auto mb-3 md:mb-4 transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
           />
-          <p className="text-slate-400 text-sm md:text-base">© 2024 Grozo. All rights reserved.</p>
+          <p className="text-slate-400 text-sm md:text-base mb-2">© 2024 Grozo. All rights reserved.</p>
+          <p className="text-slate-500 text-xs md:text-sm">
+            Made by <span className="text-green-400 font-semibold">Shajaurahman</span> | 
+            Contact: <a href="mailto:grozo.in@gmail.com" className="text-green-400 hover:text-green-300 transition-colors">grozo.in@gmail.com</a>
+          </p>
         </div>
       </footer>
     </div>

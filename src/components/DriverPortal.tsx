@@ -1,58 +1,79 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Home, Package, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  createDriver, 
+  updateDriverStatus, 
+  getDeliveryRequests, 
+  updateDeliveryRequestStatus, 
+  Driver, 
+  DeliveryRequest 
+} from "@/services/database";
 
 interface DriverPortalProps {
   onBack: () => void;
 }
 
-interface DeliveryRequest {
-  id: number;
-  shopName: string;
-  shopLocation: string;
-  buyerName: string;
-  buyerAddress: string;
-  totalAmount: number;
-  deliveryCharge: number;
-  distance: string;
-  timestamp: string;
-}
-
-interface ActiveDelivery {
-  id: number;
-  shopName: string;
-  buyerName: string;
-  buyerAddress: string;
-  buyerPhone: string;
-  totalAmount: number;
-  deliveryCharge: number;
-  status: "Accepted" | "Picked Up" | "Delivered";
-}
-
 const DriverPortal = ({ onBack }: DriverPortalProps) => {
   const [showDriverRegistration, setShowDriverRegistration] = useState(true);
+  const [registeredDriver, setRegisteredDriver] = useState<Driver | null>(null);
   const [availableRequests, setAvailableRequests] = useState<DeliveryRequest[]>([]);
-  const [activeDeliveries, setActiveDeliveries] = useState<ActiveDelivery[]>([]);
+  const [activeDeliveries, setActiveDeliveries] = useState<DeliveryRequest[]>([]);
   const [isOnline, setIsOnline] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [driverData, setDriverData] = useState({
-    fullName: "",
+    full_name: "",
     phone: "",
-    vehicleType: "",
-    licenseNumber: "",
+    vehicle_type: "",
+    license_number: "",
     address: ""
   });
 
   const { toast } = useToast();
 
-  const handleDriverRegistration = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (registeredDriver && isOnline) {
+      loadAvailableRequests();
+      loadActiveDeliveries();
+      // Set up polling for new requests
+      const interval = setInterval(() => {
+        loadAvailableRequests();
+        loadActiveDeliveries();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [registeredDriver, isOnline]);
+
+  const loadAvailableRequests = async () => {
+    try {
+      const requests = await getDeliveryRequests('pending');
+      setAvailableRequests(requests);
+    } catch (error) {
+      console.error('Error loading requests:', error);
+    }
+  };
+
+  const loadActiveDeliveries = async () => {
+    try {
+      const requests = await getDeliveryRequests();
+      const myDeliveries = requests.filter(req => 
+        req.driver_id === registeredDriver?.id && 
+        ['accepted', 'picked_up'].includes(req.status)
+      );
+      setActiveDeliveries(myDeliveries);
+    } catch (error) {
+      console.error('Error loading active deliveries:', error);
+    }
+  };
+
+  const handleDriverRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!driverData.fullName || !driverData.phone || !driverData.vehicleType) {
+    if (!driverData.full_name || !driverData.phone || !driverData.vehicle_type) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -61,90 +82,100 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       return;
     }
 
-    setShowDriverRegistration(false);
-    toast({
-      title: "Success",
-      description: "Driver profile registered successfully! You can now go online to accept requests.",
-    });
-
-    // Add sample requests for demo
-    setAvailableRequests([
-      {
-        id: 1,
-        shopName: "Fresh Mart Grocery",
-        shopLocation: "123 Main Street, Downtown",
-        buyerName: "John Doe",
-        buyerAddress: "123 Park Street, Block A, Flat 301",
-        totalAmount: 850,
-        deliveryCharge: 30,
-        distance: "2.1 km",
-        timestamp: "5 mins ago"
-      },
-      {
-        id: 2,
-        shopName: "Green Valley Store", 
-        shopLocation: "456 Park Avenue, Central",
-        buyerName: "Sarah Smith",
-        buyerAddress: "456 Main Road, Villa 15",
-        totalAmount: 1200,
-        deliveryCharge: 40,
-        distance: "1.8 km",
-        timestamp: "8 mins ago"
-      }
-    ]);
+    setLoading(true);
+    try {
+      const newDriver = await createDriver(driverData);
+      setRegisteredDriver(newDriver);
+      setShowDriverRegistration(false);
+      toast({
+        title: "Success",
+        description: "Driver profile registered successfully! You can now go online to accept requests.",
+      });
+    } catch (error) {
+      console.error('Error registering driver:', error);
+      toast({
+        title: "Error",
+        description: "Failed to register driver profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
-    // Simulate new request notifications
-    const interval = setInterval(() => {
-      if (isOnline && Math.random() > 0.8) {
+  const handleToggleOnline = async () => {
+    if (!registeredDriver) return;
+    
+    try {
+      const newStatus = !isOnline;
+      await updateDriverStatus(registeredDriver.id!, newStatus);
+      setIsOnline(newStatus);
+      
+      if (newStatus) {
         toast({
-          title: "🚨 New Delivery Request!",
-          description: "A nearby shop needs delivery within 2km",
+          title: "You're now online!",
+          description: "You'll receive notifications for new delivery requests.",
         });
-        
-        // Play notification sound (in real app, you'd use Web Audio API)
-        console.log("🔔 Notification sound played");
+        loadAvailableRequests();
+      } else {
+        toast({
+          title: "You're now offline",
+          description: "You won't receive new delivery requests.",
+        });
+        setAvailableRequests([]);
       }
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [isOnline, toast]);
-
-  const handleAcceptRequest = (request: DeliveryRequest) => {
-    const newActiveDelivery: ActiveDelivery = {
-      id: request.id,
-      shopName: request.shopName,
-      buyerName: request.buyerName,
-      buyerAddress: request.buyerAddress,
-      buyerPhone: "+91 98765 43210", // In real app, this would come from request
-      totalAmount: request.totalAmount,
-      deliveryCharge: request.deliveryCharge,
-      status: "Accepted"
-    };
-
-    setActiveDeliveries([...activeDeliveries, newActiveDelivery]);
-    setAvailableRequests(availableRequests.filter(req => req.id !== request.id));
-
-    toast({
-      title: "Request Accepted!",
-      description: `You accepted the delivery for ${request.buyerName}`,
-    });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update online status",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updateDeliveryStatus = (id: number, newStatus: "Accepted" | "Picked Up" | "Delivered") => {
-    setActiveDeliveries(activeDeliveries.map(delivery => 
-      delivery.id === id ? { ...delivery, status: newStatus } : delivery
-    ));
+  const handleAcceptRequest = async (request: DeliveryRequest) => {
+    if (!registeredDriver) return;
+    
+    try {
+      await updateDeliveryRequestStatus(request.id!, 'accepted', registeredDriver.id);
+      setAvailableRequests(availableRequests.filter(req => req.id !== request.id));
+      loadActiveDeliveries();
+      
+      toast({
+        title: "Request Accepted!",
+        description: `You accepted the delivery for ${request.buyer_name}`,
+      });
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to accept request",
+        variant: "destructive"
+      });
+    }
+  };
 
-    if (newStatus === "Delivered") {
-      setTimeout(() => {
+  const updateDeliveryStatus = async (id: string, newStatus: DeliveryRequest['status']) => {
+    try {
+      await updateDeliveryRequestStatus(id, newStatus);
+      
+      if (newStatus === "delivered") {
         setActiveDeliveries(activeDeliveries.filter(delivery => delivery.id !== id));
         toast({
           title: "Delivery Completed!",
           description: "Great job! Payment has been processed.",
         });
-      }, 2000);
+      } else {
+        loadActiveDeliveries();
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update delivery status",
+        variant: "destructive"
+      });
     }
   };
 
@@ -154,9 +185,9 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Accepted": return "bg-blue-500/20 text-blue-400";
-      case "Picked Up": return "bg-yellow-500/20 text-yellow-400";
-      case "Delivered": return "bg-green-500/20 text-green-400";
+      case "accepted": return "bg-blue-500/20 text-blue-400";
+      case "picked_up": return "bg-yellow-500/20 text-yellow-400";
+      case "delivered": return "bg-green-500/20 text-green-400";
       default: return "bg-gray-500/20 text-gray-400";
     }
   };
@@ -172,7 +203,7 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={onBack}
-                className="text-slate-300 hover:text-white"
+                className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -183,12 +214,23 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                 className="h-18 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
               />
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-white hidden md:inline">Driver Portal</span>
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
+                <Home className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">Home</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
+                <Package className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">Deliveries</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
+                <Settings className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">Settings</span>
+              </Button>
               {!showDriverRegistration && (
                 <Button
-                  onClick={() => setIsOnline(!isOnline)}
-                  className={`${isOnline ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white text-sm`}
+                  onClick={handleToggleOnline}
+                  className={`${isOnline ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white text-sm transition-all duration-300 hover:scale-105`}
                 >
                   {isOnline ? '🟢 Online' : '🔴 Offline'}
                 </Button>
@@ -208,13 +250,14 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleDriverRegistration} className="space-y-4">
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="fullName" className="text-slate-300">Full Name *</Label>
                     <Input
                       id="fullName"
-                      value={driverData.fullName}
-                      onChange={(e) => setDriverData(prev => ({...prev, fullName: e.target.value}))}
+                      value={driverData.full_name}
+                      onChange={(e) => setDriverData(prev => ({...prev, full_name: e.target.value}))}
                       className="bg-slate-700 border-slate-600 text-white"
                       required
                     />
@@ -235,8 +278,8 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                     <Label htmlFor="vehicleType" className="text-slate-300">Vehicle Type *</Label>
                     <Input
                       id="vehicleType"
-                      value={driverData.vehicleType}
-                      onChange={(e) => setDriverData(prev => ({...prev, vehicleType: e.target.value}))}
+                      value={driverData.vehicle_type}
+                      onChange={(e) => setDriverData(prev => ({...prev, vehicle_type: e.target.value}))}
                       className="bg-slate-700 border-slate-600 text-white"
                       placeholder="e.g., Bike, Scooter, Car"
                       required
@@ -246,8 +289,8 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                     <Label htmlFor="licenseNumber" className="text-slate-300">License Number</Label>
                     <Input
                       id="licenseNumber"
-                      value={driverData.licenseNumber}
-                      onChange={(e) => setDriverData(prev => ({...prev, licenseNumber: e.target.value}))}
+                      value={driverData.license_number}
+                      onChange={(e) => setDriverData(prev => ({...prev, license_number: e.target.value}))}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
@@ -261,8 +304,12 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
-                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white w-full">
-                  Register Driver Profile
+                <Button 
+                  type="submit" 
+                  className="bg-green-500 hover:bg-green-600 text-white w-full transition-all duration-300 hover:scale-105"
+                  disabled={loading}
+                >
+                  {loading ? "Registering..." : "Register Driver Profile"}
                 </Button>
               </form>
             </CardContent>
@@ -291,11 +338,11 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                       <CardContent className="p-4 md:p-6">
                         <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
                           <div>
-                            <h3 className="text-lg md:text-xl font-semibold text-white mb-1">{delivery.shopName}</h3>
-                            <p className="text-slate-300">→ {delivery.buyerName}</p>
+                            <h3 className="text-lg md:text-xl font-semibold text-white mb-1">Delivery for {delivery.buyer_name}</h3>
+                            <p className="text-slate-300">Phone: {delivery.buyer_phone}</p>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(delivery.status)} self-start`}>
-                            {delivery.status}
+                          <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(delivery.status)} self-start capitalize`}>
+                            {delivery.status.replace('_', ' ')}
                           </span>
                         </div>
 
@@ -304,25 +351,25 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                             <MapPin className="w-4 h-4 mr-1" />
                             Delivery Address
                           </p>
-                          <p className="text-white text-sm md:text-base">{delivery.buyerAddress}</p>
+                          <p className="text-white text-sm md:text-base">{delivery.delivery_address}</p>
                         </div>
 
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-4">
                           <div className="flex flex-col sm:flex-row sm:space-x-6 space-y-2 sm:space-y-0">
                             <div>
                               <p className="text-slate-400 text-sm">Total Amount</p>
-                              <p className="text-white font-semibold">₹{delivery.totalAmount}</p>
+                              <p className="text-white font-semibold">₹{delivery.total_amount}</p>
                             </div>
                             <div>
                               <p className="text-slate-400 text-sm">Your Earning</p>
-                              <p className="text-green-400 font-semibold">₹{delivery.deliveryCharge}</p>
+                              <p className="text-green-400 font-semibold">₹{delivery.delivery_charge}</p>
                             </div>
                           </div>
                           <Button
-                            onClick={() => handleCall(delivery.buyerPhone)}
+                            onClick={() => handleCall(delivery.buyer_phone)}
                             variant="outline"
                             size="sm"
-                            className="border-green-500 text-green-400 hover:bg-green-500 hover:text-white w-full sm:w-auto"
+                            className="border-green-500 text-green-400 hover:bg-green-500 hover:text-white w-full sm:w-auto transition-all duration-300 hover:scale-105"
                           >
                             <Phone className="w-4 h-4 mr-2" />
                             Call Buyer
@@ -330,18 +377,18 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3">
-                          {delivery.status === "Accepted" && (
+                          {delivery.status === "accepted" && (
                             <Button
-                              onClick={() => updateDeliveryStatus(delivery.id, "Picked Up")}
-                              className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                              onClick={() => updateDeliveryStatus(delivery.id!, "picked_up")}
+                              className="bg-yellow-500 hover:bg-yellow-600 text-white transition-all duration-300 hover:scale-105"
                             >
                               Mark as Picked Up
                             </Button>
                           )}
-                          {delivery.status === "Picked Up" && (
+                          {delivery.status === "picked_up" && (
                             <Button
-                              onClick={() => updateDeliveryStatus(delivery.id, "Delivered")}
-                              className="bg-green-500 hover:bg-green-600 text-white"
+                              onClick={() => updateDeliveryStatus(delivery.id!, "delivered")}
+                              className="bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105"
                             >
                               Mark as Delivered
                             </Button>
@@ -379,28 +426,28 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                       <CardContent className="p-4 md:p-6">
                         <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
                           <div className="flex-1">
-                            <h3 className="text-lg md:text-xl font-semibold text-white mb-1">{request.shopName}</h3>
-                            <p className="text-slate-300 text-sm">{request.shopLocation}</p>
-                            <p className="text-slate-400 text-sm">Posted {request.timestamp}</p>
+                            <h3 className="text-lg md:text-xl font-semibold text-white mb-1">Delivery Request</h3>
+                            <p className="text-slate-300 text-sm">Customer: {request.buyer_name}</p>
+                            <p className="text-slate-400 text-sm">Posted {new Date(request.created_at || '').toLocaleTimeString()}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-green-400 font-semibold text-lg">₹{request.deliveryCharge}</p>
-                            <p className="text-slate-400 text-sm">{request.distance}</p>
+                            <p className="text-green-400 font-semibold text-lg">₹{request.delivery_charge}</p>
+                            <p className="text-slate-400 text-sm">Delivery fee</p>
                           </div>
                         </div>
 
                         <div className="mb-4">
                           <p className="text-slate-400 text-sm flex items-center mb-1">
                             <MapPin className="w-4 h-4 mr-1" />
-                            Deliver to: {request.buyerName}
+                            Deliver to: {request.buyer_name}
                           </p>
-                          <p className="text-white text-sm md:text-base">{request.buyerAddress}</p>
-                          <p className="text-slate-400 text-sm mt-1">Amount to collect: ₹{request.totalAmount}</p>
+                          <p className="text-white text-sm md:text-base">{request.delivery_address}</p>
+                          <p className="text-slate-400 text-sm mt-1">Amount to collect: ₹{request.total_amount}</p>
                         </div>
 
                         <Button
                           onClick={() => handleAcceptRequest(request)}
-                          className="bg-green-500 hover:bg-green-600 text-white w-full"
+                          className="bg-green-500 hover:bg-green-600 text-white w-full transition-all duration-300 hover:scale-105"
                         >
                           Accept Delivery
                         </Button>

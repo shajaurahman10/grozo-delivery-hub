@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase'
 
 export interface Shop {
@@ -39,8 +38,57 @@ export interface DeliveryRequest {
   updated_at?: string
 }
 
+// Mock data for when Supabase is not properly configured
+const mockShops: Shop[] = [
+  {
+    id: '1',
+    shop_name: 'Fresh Mart Grocery',
+    owner_name: 'Raj Kumar',
+    phone: '+91 98765 43210',
+    address: 'Main Street, Block A',
+    city: 'Mumbai',
+    pincode: '400001'
+  },
+  {
+    id: '2',
+    shop_name: 'Green Valley Store',
+    owner_name: 'Priya Sharma',
+    phone: '+91 98765 43211',
+    address: 'Market Road, Sector 5',
+    city: 'Delhi',
+    pincode: '110001'
+  }
+]
+
+const mockDrivers: Driver[] = [
+  {
+    id: '1',
+    full_name: 'Amit Singh',
+    phone: '+91 98765 43212',
+    vehicle_type: 'Motorcycle',
+    license_number: 'DL123456789',
+    is_online: true
+  }
+]
+
+const mockDeliveryRequests: DeliveryRequest[] = []
+
+// Helper function to check if Supabase is properly configured
+const isSupabaseConfigured = () => {
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  return url && key && url !== 'https://your-project.supabase.co' && key !== 'your-anon-key'
+}
+
 // Shop operations
 export const createShop = async (shopData: Omit<Shop, 'id' | 'created_at' | 'updated_at'>) => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    const newShop = { ...shopData, id: Date.now().toString() }
+    mockShops.push(newShop)
+    return newShop
+  }
+
   const { data, error } = await supabase
     .from('shops')
     .insert([shopData])
@@ -52,6 +100,11 @@ export const createShop = async (shopData: Omit<Shop, 'id' | 'created_at' | 'upd
 }
 
 export const getShops = async () => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    return mockShops
+  }
+
   const { data, error } = await supabase
     .from('shops')
     .select('*')
@@ -63,6 +116,13 @@ export const getShops = async () => {
 
 // Driver operations
 export const createDriver = async (driverData: Omit<Driver, 'id' | 'created_at' | 'updated_at'>) => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    const newDriver = { ...driverData, id: Date.now().toString(), is_online: false }
+    mockDrivers.push(newDriver)
+    return newDriver
+  }
+
   const { data, error } = await supabase
     .from('drivers')
     .insert([{ ...driverData, is_online: false }])
@@ -74,6 +134,16 @@ export const createDriver = async (driverData: Omit<Driver, 'id' | 'created_at' 
 }
 
 export const updateDriverStatus = async (driverId: string, isOnline: boolean) => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    const driver = mockDrivers.find(d => d.id === driverId)
+    if (driver) {
+      driver.is_online = isOnline
+      return driver
+    }
+    throw new Error('Driver not found')
+  }
+
   const { data, error } = await supabase
     .from('drivers')
     .update({ is_online: isOnline })
@@ -86,6 +156,11 @@ export const updateDriverStatus = async (driverId: string, isOnline: boolean) =>
 }
 
 export const getOnlineDrivers = async () => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    return mockDrivers.filter(d => d.is_online)
+  }
+
   const { data, error } = await supabase
     .from('drivers')
     .select('*')
@@ -97,6 +172,13 @@ export const getOnlineDrivers = async () => {
 
 // Delivery request operations
 export const createDeliveryRequest = async (requestData: Omit<DeliveryRequest, 'id' | 'created_at' | 'updated_at'>) => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    const newRequest = { ...requestData, id: Date.now().toString(), status: 'pending' as const }
+    mockDeliveryRequests.push(newRequest)
+    return newRequest
+  }
+
   const { data, error } = await supabase
     .from('delivery_requests')
     .insert([{ ...requestData, status: 'pending' }])
@@ -108,6 +190,11 @@ export const createDeliveryRequest = async (requestData: Omit<DeliveryRequest, '
 }
 
 export const getDeliveryRequests = async (status?: string) => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    return status ? mockDeliveryRequests.filter(r => r.status === status) : mockDeliveryRequests
+  }
+
   let query = supabase
     .from('delivery_requests')
     .select('*')
@@ -124,6 +211,17 @@ export const getDeliveryRequests = async (status?: string) => {
 }
 
 export const updateDeliveryRequestStatus = async (requestId: string, status: DeliveryRequest['status'], driverId?: string) => {
+  if (!isSupabaseConfigured()) {
+    console.warn('Using mock data - Supabase not configured')
+    const request = mockDeliveryRequests.find(r => r.id === requestId)
+    if (request) {
+      request.status = status
+      if (driverId) request.driver_id = driverId
+      return request
+    }
+    throw new Error('Request not found')
+  }
+
   const updateData: any = { status }
   if (driverId) updateData.driver_id = driverId
   

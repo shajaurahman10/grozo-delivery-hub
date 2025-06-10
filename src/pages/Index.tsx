@@ -29,28 +29,28 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center">
             <img 
-              src="/lovable-uploads/10e1395f-4d55-494f-a401-42d47838d2c8.png" 
+              src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
               alt="Grozo" 
-              className="h-12 w-auto object-contain"
+              className="h-16 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
             />
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
+      <div className="container mx-auto px-4 py-8 md:py-16">
+        <div className="text-center mb-12 md:mb-16">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 md:mb-6">
             Get Groceries Delivered
             <br />
             <span className="text-green-400">from Local Shops</span>
           </h1>
-          <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-slate-300 mb-6 md:mb-8 max-w-2xl mx-auto px-4">
             Order by calling the nearby store. We'll connect you with a delivery driver in minutes.
           </p>
           <Button 
             size="lg" 
-            className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+            className="bg-green-500 hover:bg-green-600 text-white px-6 md:px-8 py-3 md:py-4 text-base md:text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
             onClick={() => setSelectedPortal("buyer")}
           >
             Order Now
@@ -58,19 +58,19 @@ const Index = () => {
         </div>
 
         {/* Portal Selection Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto px-4">
           {/* For Buyers */}
           <Card 
             className="bg-slate-800/50 border-slate-700 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer group hover:scale-105"
             onClick={() => setSelectedPortal("buyer")}
           >
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-green-500/30 transition-colors">
-                <Phone className="w-8 h-8 text-green-400" />
+            <CardContent className="p-6 md:p-8 text-center">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 group-hover:bg-green-500/30 transition-colors">
+                <Phone className="w-6 h-6 md:w-8 md:h-8 text-green-400" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">For Buyers</h3>
-              <p className="text-slate-300">
-                Find local grocery stores, order phone
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">For Buyers</h3>
+              <p className="text-slate-300 text-sm md:text-base">
+                Find local grocery stores, order by phone
               </p>
             </CardContent>
           </Card>
@@ -80,12 +80,12 @@ const Index = () => {
             className="bg-slate-800/50 border-slate-700 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer group hover:scale-105"
             onClick={() => setSelectedPortal("shopkeeper")}
           >
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-green-500/30 transition-colors">
-                <ShoppingCart className="w-8 h-8 text-green-400" />
+            <CardContent className="p-6 md:p-8 text-center">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 group-hover:bg-green-500/30 transition-colors">
+                <ShoppingCart className="w-6 h-6 md:w-8 md:h-8 text-green-400" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">For Shops</h3>
-              <p className="text-slate-300">
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">For Shops</h3>
+              <p className="text-slate-300 text-sm md:text-base">
                 Request a driver, deliver to your customer
               </p>
             </CardContent>
@@ -96,14 +96,14 @@ const Index = () => {
             className="bg-slate-800/50 border-slate-700 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer group hover:scale-105"
             onClick={() => setSelectedPortal("driver")}
           >
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-green-500/30 transition-colors">
-                <div className="w-8 h-8 text-green-400 flex items-center justify-center">
+            <CardContent className="p-6 md:p-8 text-center">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 group-hover:bg-green-500/30 transition-colors">
+                <div className="w-6 h-6 md:w-8 md:h-8 text-green-400 flex items-center justify-center text-xl md:text-2xl">
                   🏃‍♂️
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">For Drivers</h3>
-              <p className="text-slate-300">
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">For Drivers</h3>
+              <p className="text-slate-300 text-sm md:text-base">
                 Earn money with flexible hours
               </p>
             </CardContent>
@@ -112,14 +112,14 @@ const Index = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-slate-900 border-t border-slate-700 py-8">
+      <footer className="bg-slate-900 border-t border-slate-700 py-6 md:py-8 mt-auto">
         <div className="container mx-auto px-4 text-center">
           <img 
-            src="/lovable-uploads/10e1395f-4d55-494f-a401-42d47838d2c8.png" 
+            src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
             alt="Grozo" 
-            className="h-10 w-auto object-contain mx-auto mb-4"
+            className="h-12 md:h-14 w-auto object-contain mx-auto mb-3 md:mb-4 transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
           />
-          <p className="text-slate-400">© 2024 Grozo. All rights reserved.</p>
+          <p className="text-slate-400 text-sm md:text-base">© 2024 Grozo. All rights reserved.</p>
         </div>
       </footer>
     </div>

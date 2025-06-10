@@ -24,28 +24,17 @@ interface DeliveryRequest {
 
 const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   const [showNewRequest, setShowNewRequest] = useState(false);
-  const [requests, setRequests] = useState<DeliveryRequest[]>([
-    {
-      id: 1,
-      buyerName: "John Doe",
-      buyerPhone: "+91 98765 43210",
-      deliveryAddress: "123 Park Street, Block A, Flat 301",
-      totalAmount: 850,
-      deliveryCharge: 30,
-      status: "Pending",
-      timestamp: "2024-06-10 14:30"
-    },
-    {
-      id: 2,
-      buyerName: "Sarah Smith",
-      buyerPhone: "+91 98765 43211",
-      deliveryAddress: "456 Main Road, Villa 15",
-      totalAmount: 1200,
-      deliveryCharge: 40,
-      status: "Accepted",
-      timestamp: "2024-06-10 13:15"
-    }
-  ]);
+  const [showShopRegistration, setShowShopRegistration] = useState(true);
+  const [requests, setRequests] = useState<DeliveryRequest[]>([]);
+
+  const [shopData, setShopData] = useState({
+    shopName: "",
+    ownerName: "",
+    phone: "",
+    address: "",
+    city: "",
+    pincode: ""
+  });
 
   const [formData, setFormData] = useState({
     buyerName: "",
@@ -56,6 +45,25 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   });
 
   const { toast } = useToast();
+
+  const handleShopRegistration = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!shopData.shopName || !shopData.ownerName || !shopData.phone || !shopData.address) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setShowShopRegistration(false);
+    toast({
+      title: "Success",
+      description: "Shop registered successfully! You can now post delivery requests.",
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,150 +130,233 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                 Back
               </Button>
               <img 
-                src="/lovable-uploads/10e1395f-4d55-494f-a401-42d47838d2c8.png" 
+                src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
                 alt="Grozo" 
-                className="h-12 w-auto object-contain"
+                className="h-14 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
               />
             </div>
-            <h1 className="text-xl font-semibold text-white">Shopkeeper Portal</h1>
+            <h1 className="text-lg md:text-xl font-semibold text-white">Shopkeeper Portal</h1>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Delivery Requests</h2>
-            <p className="text-slate-300">Manage your delivery orders</p>
-          </div>
-          <Button 
-            onClick={() => setShowNewRequest(true)}
-            className="bg-green-500 hover:bg-green-600 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Request
-          </Button>
-        </div>
-
-        {/* New Request Form */}
-        {showNewRequest && (
+      <div className="container mx-auto px-4 py-6 md:py-8">
+        {/* Shop Registration */}
+        {showShopRegistration && (
           <Card className="bg-slate-800/50 border-slate-700 mb-8">
             <CardHeader>
-              <CardTitle className="text-white">Create Delivery Request</CardTitle>
+              <CardTitle className="text-white text-xl md:text-2xl">Register Your Shop</CardTitle>
+              <p className="text-slate-300 text-sm md:text-base">Please register your shop details to start receiving delivery requests</p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleShopRegistration} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="buyerName" className="text-slate-300">Buyer Name *</Label>
+                    <Label htmlFor="shopName" className="text-slate-300">Shop Name *</Label>
                     <Input
-                      id="buyerName"
-                      value={formData.buyerName}
-                      onChange={(e) => setFormData(prev => ({...prev, buyerName: e.target.value}))}
+                      id="shopName"
+                      value={shopData.shopName}
+                      onChange={(e) => setShopData(prev => ({...prev, shopName: e.target.value}))}
                       className="bg-slate-700 border-slate-600 text-white"
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="buyerPhone" className="text-slate-300">Buyer Phone *</Label>
+                    <Label htmlFor="ownerName" className="text-slate-300">Owner Name *</Label>
                     <Input
-                      id="buyerPhone"
-                      value={formData.buyerPhone}
-                      onChange={(e) => setFormData(prev => ({...prev, buyerPhone: e.target.value}))}
+                      id="ownerName"
+                      value={shopData.ownerName}
+                      onChange={(e) => setShopData(prev => ({...prev, ownerName: e.target.value}))}
                       className="bg-slate-700 border-slate-600 text-white"
                       required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="phone" className="text-slate-300">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      value={shopData.phone}
+                      onChange={(e) => setShopData(prev => ({...prev, phone: e.target.value}))}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pincode" className="text-slate-300">Pincode</Label>
+                    <Input
+                      id="pincode"
+                      value={shopData.pincode}
+                      onChange={(e) => setShopData(prev => ({...prev, pincode: e.target.value}))}
+                      className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="deliveryAddress" className="text-slate-300">Delivery Address *</Label>
+                  <Label htmlFor="address" className="text-slate-300">Shop Address *</Label>
                   <Input
-                    id="deliveryAddress"
-                    value={formData.deliveryAddress}
-                    onChange={(e) => setFormData(prev => ({...prev, deliveryAddress: e.target.value}))}
+                    id="address"
+                    value={shopData.address}
+                    onChange={(e) => setShopData(prev => ({...prev, address: e.target.value}))}
                     className="bg-slate-700 border-slate-600 text-white"
                     required
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="totalAmount" className="text-slate-300">Total Amount (₹) *</Label>
-                    <Input
-                      id="totalAmount"
-                      type="number"
-                      value={formData.totalAmount}
-                      onChange={(e) => setFormData(prev => ({...prev, totalAmount: e.target.value}))}
-                      className="bg-slate-700 border-slate-600 text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="deliveryCharge" className="text-slate-300">Delivery Charge (₹)</Label>
-                    <Input
-                      id="deliveryCharge"
-                      type="number"
-                      value={formData.deliveryCharge}
-                      onChange={(e) => setFormData(prev => ({...prev, deliveryCharge: e.target.value}))}
-                      className="bg-slate-700 border-slate-600 text-white"
-                      placeholder="30"
-                    />
-                  </div>
-                </div>
-                <div className="flex space-x-3">
-                  <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white">
-                    Post Request
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setShowNewRequest(false)}
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white w-full md:w-auto">
+                  Register Shop
+                </Button>
               </form>
             </CardContent>
           </Card>
         )}
 
-        {/* Delivery Requests List */}
-        <div className="space-y-4">
-          {requests.map((request) => (
-            <Card key={request.id} className="bg-slate-800/50 border-slate-700">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-1">{request.buyerName}</h3>
-                    <p className="text-slate-300 text-sm">{request.buyerPhone}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)}`}>
-                    {request.status}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-slate-400 text-sm">Delivery Address</p>
-                    <p className="text-white">{request.deliveryAddress}</p>
-                  </div>
-                  <div className="flex space-x-6">
-                    <div>
-                      <p className="text-slate-400 text-sm">Total Amount</p>
-                      <p className="text-white font-semibold">₹{request.totalAmount}</p>
+        {/* Main Content - Only show after shop registration */}
+        {!showShopRegistration && (
+          <>
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 gap-4">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Delivery Requests</h2>
+                <p className="text-slate-300 text-sm md:text-base">Manage your delivery orders</p>
+              </div>
+              <Button 
+                onClick={() => setShowNewRequest(true)}
+                className="bg-green-500 hover:bg-green-600 text-white w-full md:w-auto"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Request
+              </Button>
+            </div>
+
+            {/* New Request Form */}
+            {showNewRequest && (
+              <Card className="bg-slate-800/50 border-slate-700 mb-8">
+                <CardHeader>
+                  <CardTitle className="text-white">Create Delivery Request</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="buyerName" className="text-slate-300">Buyer Name *</Label>
+                        <Input
+                          id="buyerName"
+                          value={formData.buyerName}
+                          onChange={(e) => setFormData(prev => ({...prev, buyerName: e.target.value}))}
+                          className="bg-slate-700 border-slate-600 text-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="buyerPhone" className="text-slate-300">Buyer Phone *</Label>
+                        <Input
+                          id="buyerPhone"
+                          value={formData.buyerPhone}
+                          onChange={(e) => setFormData(prev => ({...prev, buyerPhone: e.target.value}))}
+                          className="bg-slate-700 border-slate-600 text-white"
+                          required
+                        />
+                      </div>
                     </div>
                     <div>
-                      <p className="text-slate-400 text-sm">Delivery Charge</p>
-                      <p className="text-green-400 font-semibold">₹{request.deliveryCharge}</p>
+                      <Label htmlFor="deliveryAddress" className="text-slate-300">Delivery Address *</Label>
+                      <Input
+                        id="deliveryAddress"
+                        value={formData.deliveryAddress}
+                        onChange={(e) => setFormData(prev => ({...prev, deliveryAddress: e.target.value}))}
+                        className="bg-slate-700 border-slate-600 text-white"
+                        required
+                      />
                     </div>
-                  </div>
-                </div>
-                
-                <p className="text-slate-400 text-sm">Posted: {request.timestamp}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="totalAmount" className="text-slate-300">Total Amount (₹) *</Label>
+                        <Input
+                          id="totalAmount"
+                          type="number"
+                          value={formData.totalAmount}
+                          onChange={(e) => setFormData(prev => ({...prev, totalAmount: e.target.value}))}
+                          className="bg-slate-700 border-slate-600 text-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="deliveryCharge" className="text-slate-300">Delivery Charge (₹)</Label>
+                        <Input
+                          id="deliveryCharge"
+                          type="number"
+                          value={formData.deliveryCharge}
+                          onChange={(e) => setFormData(prev => ({...prev, deliveryCharge: e.target.value}))}
+                          className="bg-slate-700 border-slate-600 text-white"
+                          placeholder="30"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3">
+                      <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white">
+                        Post Request
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setShowNewRequest(false)}
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Delivery Requests List */}
+            <div className="space-y-4">
+              {requests.map((request) => (
+                <Card key={request.id} className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
+                      <div>
+                        <h3 className="text-lg md:text-xl font-semibold text-white mb-1">{request.buyerName}</h3>
+                        <p className="text-slate-300 text-sm">{request.buyerPhone}</p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)} self-start`}>
+                        {request.status}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-slate-400 text-sm">Delivery Address</p>
+                        <p className="text-white text-sm md:text-base">{request.deliveryAddress}</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:space-x-6 space-y-2 sm:space-y-0">
+                        <div>
+                          <p className="text-slate-400 text-sm">Total Amount</p>
+                          <p className="text-white font-semibold">₹{request.totalAmount}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 text-sm">Delivery Charge</p>
+                          <p className="text-green-400 font-semibold">₹{request.deliveryCharge}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <p className="text-slate-400 text-sm">Posted: {request.timestamp}</p>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {requests.length === 0 && (
+                <Card className="bg-slate-800/30 border-slate-700">
+                  <CardContent className="p-6 md:p-8 text-center">
+                    <p className="text-slate-300">No delivery requests yet. Create your first request to get started!</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

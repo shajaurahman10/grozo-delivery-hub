@@ -31,7 +31,7 @@ const Index = () => {
             <img 
               src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
               alt="Grozo" 
-              className="h-16 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
+              className="h-20 md:h-24 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
             />
           </div>
         </div>
@@ -117,7 +117,7 @@ const Index = () => {
           <img 
             src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
             alt="Grozo" 
-            className="h-12 md:h-14 w-auto object-contain mx-auto mb-3 md:mb-4 transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
+            className="h-16 md:h-20 w-auto object-contain mx-auto mb-3 md:mb-4 transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
           />
           <p className="text-slate-400 text-sm md:text-base">© 2024 Grozo. All rights reserved.</p>
         </div>

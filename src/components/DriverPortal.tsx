@@ -180,7 +180,7 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
               <img 
                 src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
                 alt="Grozo" 
-                className="h-14 md:h-16 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
+                className="h-18 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
               />
             </div>
             <div className="flex items-center space-x-4">

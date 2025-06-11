@@ -3,6 +3,7 @@
   margin: 0 auto;
   text-align: center;
   width: 100%;
+  min-height: 100vh;
 }
 
 .logo {
@@ -39,4 +40,39 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Ensure no horizontal scrolling */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Better mobile text sizes */
+  h1 {
+    line-height: 1.2;
+  }
+  
+  /* Mobile navigation improvements */
+  .mobile-nav {
+    width: 100%;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better focus states for accessibility */
+button:focus,
+a:focus {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
 }

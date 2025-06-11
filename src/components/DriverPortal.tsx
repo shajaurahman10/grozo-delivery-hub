@@ -3,13 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MapPin, Phone, Home, Package, Settings } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   createDriver, 
   updateDriverStatus, 
   getDeliveryRequests, 
-  updateDeliveryRequestStatus, 
+  updateDeliveryRequestStatus,
+  getDeliveryRequestsByDriver,
+  subscribeToDeliveryRequests,
   Driver, 
   DeliveryRequest 
 } from "@/services/database";
@@ -25,6 +27,8 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
   const [activeDeliveries, setActiveDeliveries] = useState<DeliveryRequest[]>([]);
   const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState<string[]>([]);
+  
   const [driverData, setDriverData] = useState({
     full_name: "",
     phone: "",
@@ -39,12 +43,37 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
     if (registeredDriver && isOnline) {
       loadAvailableRequests();
       loadActiveDeliveries();
-      // Set up polling for new requests
+      
+      // Subscribe to new delivery requests
+      const channel = subscribeToDeliveryRequests((payload) => {
+        console.log('Delivery request update:', payload);
+        
+        if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
+          // New delivery request available
+          setNotifications(prev => [...prev, `New delivery request from ${payload.new.buyer_name}`]);
+          toast({
+            title: "🔔 New Delivery Request!",
+            description: `Order for ${payload.new.buyer_name} - ₹${payload.new.delivery_charge}`,
+          });
+          loadAvailableRequests();
+        }
+        
+        if (payload.eventType === 'UPDATE') {
+          loadAvailableRequests();
+          loadActiveDeliveries();
+        }
+      });
+
+      // Set up polling as backup
       const interval = setInterval(() => {
         loadAvailableRequests();
         loadActiveDeliveries();
-      }, 10000);
-      return () => clearInterval(interval);
+      }, 15000);
+      
+      return () => {
+        channel.unsubscribe();
+        clearInterval(interval);
+      };
     }
   }, [registeredDriver, isOnline]);
 
@@ -58,12 +87,10 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
   };
 
   const loadActiveDeliveries = async () => {
+    if (!registeredDriver) return;
+    
     try {
-      const requests = await getDeliveryRequests();
-      const myDeliveries = requests.filter(req => 
-        req.driver_id === registeredDriver?.id && 
-        ['accepted', 'picked_up'].includes(req.status)
-      );
+      const myDeliveries = await getDeliveryRequestsByDriver(registeredDriver.id!);
       setActiveDeliveries(myDeliveries);
     } catch (error) {
       console.error('Error loading active deliveries:', error);
@@ -113,16 +140,17 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       
       if (newStatus) {
         toast({
-          title: "You're now online!",
+          title: "You're now online! 🟢",
           description: "You'll receive notifications for new delivery requests.",
         });
         loadAvailableRequests();
       } else {
         toast({
-          title: "You're now offline",
+          title: "You're now offline 🔴",
           description: "You won't receive new delivery requests.",
         });
         setAvailableRequests([]);
+        setNotifications([]);
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -143,16 +171,17 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       loadActiveDeliveries();
       
       toast({
-        title: "Request Accepted!",
-        description: `You accepted the delivery for ${request.buyer_name}`,
+        title: "Request Accepted! ✅",
+        description: `You accepted the delivery for ${request.buyer_name}. Shop and buyer have been notified.`,
       });
     } catch (error) {
       console.error('Error accepting request:', error);
       toast({
         title: "Error",
-        description: "Failed to accept request",
+        description: "Failed to accept request. It may have been taken by another driver.",
         variant: "destructive"
       });
+      loadAvailableRequests();
     }
   };
 
@@ -163,11 +192,15 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       if (newStatus === "delivered") {
         setActiveDeliveries(activeDeliveries.filter(delivery => delivery.id !== id));
         toast({
-          title: "Delivery Completed!",
+          title: "Delivery Completed! 🎉",
           description: "Great job! Payment has been processed.",
         });
       } else {
         loadActiveDeliveries();
+        toast({
+          title: "Status Updated",
+          description: `Delivery marked as ${newStatus.replace('_', ' ')}`,
+        });
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -190,6 +223,10 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       case "delivered": return "bg-green-500/20 text-green-400";
       default: return "bg-gray-500/20 text-gray-400";
     }
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
   };
 
   return (
@@ -227,6 +264,20 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                 <Settings className="w-4 h-4 mr-2" />
                 <span className="hidden md:inline">Settings</span>
               </Button>
+              {notifications.length > 0 && (
+                <Button 
+                  onClick={clearNotifications}
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-yellow-400 hover:text-yellow-300 relative transition-all duration-300 hover:scale-105"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {notifications.length}
+                  </span>
+                  Alerts
+                </Button>
+              )}
               {!showDriverRegistration && (
                 <Button
                   onClick={handleToggleOnline}
@@ -316,9 +367,19 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
           </Card>
         )}
 
-        {/* Main Driver Content - Only show after registration */}
+        {/* Main Driver Content */}
         {!showDriverRegistration && (
           <>
+            {/* Notifications */}
+            {notifications.length > 0 && (
+              <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-4 mb-6">
+                <h3 className="text-yellow-400 font-semibold mb-2">🔔 New Notifications</h3>
+                {notifications.map((notification, index) => (
+                  <p key={index} className="text-yellow-300 text-sm">{notification}</p>
+                ))}
+              </div>
+            )}
+
             {/* Online Status Banner */}
             {!isOnline && (
               <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 text-center">

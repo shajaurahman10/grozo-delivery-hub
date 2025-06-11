@@ -5,63 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Plus, Home, Package, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createShop, createDeliveryRequest, getDeliveryRequests, Shop, DeliveryRequest } from "@/services/database";
-import { supabase } from "@/lib/supabase"  // ✅ adjust if needed
-import { useState } from "react"
-
-const ShopkeeperPortal = ({ onBack }) => {
-  const [formData, setFormData] = useState({
-    buyer_name: "",
-    buyer_phone: "",
-    buyer_address: "",
-    amount: "",
-    delivery_fee: "",
-  });
-
-  const handleSubmit = async () => {
-    const { data: userData, error: userError } = await supabase.auth.getUser()
-    if (userError || !userData?.user) {
-      alert("User not authenticated")
-      return
-    }
-
-    const uid = userData.user.id
-
-    const { error: insertError } = await supabase
-      .from("delivery_requests")
-      .insert({
-        shopkeeper_id: uid, // ✅ auto-insert UID
-        buyer_name: formData.buyer_name,
-        buyer_phone: formData.buyer_phone,
-        buyer_address: formData.buyer_address,
-        amount: parseFloat(formData.amount),
-        delivery_fee: parseFloat(formData.delivery_fee),
-        status: "pending",
-      })
-
-    if (insertError) {
-      alert("Insert failed: " + insertError.message)
-    } else {
-      alert("Delivery request posted ✅")
-    }
-  }
-
-  return (
-    <div className="p-4">
-      <h2>Shopkeeper Portal</h2>
-      {/* Input fields */}
-      <input placeholder="Buyer Name" onChange={e => setFormData({ ...formData, buyer_name: e.target.value })} />
-      <input placeholder="Phone" onChange={e => setFormData({ ...formData, buyer_phone: e.target.value })} />
-      <input placeholder="Address" onChange={e => setFormData({ ...formData, buyer_address: e.target.value })} />
-      <input placeholder="Amount" onChange={e => setFormData({ ...formData, amount: e.target.value })} />
-      <input placeholder="Delivery Fee" onChange={e => setFormData({ ...formData, delivery_fee: e.target.value })} />
-      <button onClick={handleSubmit}>Post Delivery</button>
-      <button onClick={onBack}>← Back</button>
-    </div>
-  )
-}
-
-export default ShopkeeperPortal
+import { 
+  createShop, 
+  createDeliveryRequest, 
+  getDeliveryRequestsByShop, 
+  subscribeToDriverStatus,
+  getDriverById,
+  Shop, 
+  DeliveryRequest 
+} from "@/services/database";
 
 interface ShopkeeperPortalProps {
   onBack: () => void;
@@ -96,12 +48,25 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   useEffect(() => {
     if (registeredShop) {
       loadDeliveryRequests();
+      
+      // Subscribe to driver status updates
+      const channel = subscribeToDriverStatus((payload) => {
+        console.log('Driver status update:', payload);
+        // Refresh requests when driver status changes
+        loadDeliveryRequests();
+      });
+
+      return () => {
+        channel.unsubscribe();
+      };
     }
   }, [registeredShop]);
 
   const loadDeliveryRequests = async () => {
+    if (!registeredShop) return;
+    
     try {
-      const requestsData = await getDeliveryRequests();
+      const requestsData = await getDeliveryRequestsByShop(registeredShop.id!);
       setRequests(requestsData);
     } catch (error) {
       console.error('Error loading requests:', error);
@@ -141,74 +106,20 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
     }
   };
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!formData.buyer_name || !formData.buyer_phone || !formData.delivery_address || !formData.total_amount) {
-    toast({
-      title: "Error",
-      description: "Please fill in all required fields",
-      variant: "destructive"
-    });
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // 👇 Get UID from logged-in user
-    const { data: userData, error: authError } = await supabase.auth.getUser();
-    if (authError || !userData?.user) {
+    if (!formData.buyer_name || !formData.buyer_phone || !formData.delivery_address || !formData.total_amount) {
       toast({
         title: "Error",
-        description: "You must be logged in to post a request.",
+        description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
     }
 
-    const uid = userData.user.id;
-
-    // 👇 Insert into delivery_requests table with UID
-    const newRequest = await createDeliveryRequest({
-      shopkeeper_id: uid,  // ✅ auto-injected securely
-      buyer_name: formData.buyer_name,
-      buyer_phone: formData.buyer_phone,
-      delivery_address: formData.delivery_address,
-      total_amount: parseFloat(formData.total_amount),
-      delivery_charge: parseFloat(formData.delivery_charge) || 30,
-      status: 'pending'
-    });
-
-    setRequests([newRequest, ...requests]);
-    setFormData({
-      buyer_name: "",
-      buyer_phone: "",
-      delivery_address: "",
-      total_amount: "",
-      delivery_charge: ""
-    });
-    setShowNewRequest(false);
-
-    toast({
-      title: "Success",
-      description: "Delivery request posted successfully!",
-    });
-  } catch (error) {
-    console.error('Error creating request:', error);
-    toast({
-      title: "Error",
-      description: "Failed to create delivery request. Please try again.",
-      variant: "destructive"
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-    }
-
     setLoading(true);
+
     try {
       const newRequest = await createDeliveryRequest({
         shop_id: registeredShop?.id,
@@ -220,7 +131,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
         status: 'pending'
       });
 
-      setRequests([newRequest, ...requests]);
+      await loadDeliveryRequests();
       setFormData({
         buyer_name: "",
         buyer_phone: "",
@@ -232,7 +143,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
 
       toast({
         title: "Success",
-        description: "Delivery request posted successfully!",
+        description: "Delivery request posted successfully! Drivers will be notified.",
       });
     } catch (error) {
       console.error('Error creating request:', error);
@@ -267,7 +178,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={onBack}
-                className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105"
+                className="text-slate-300 hover:text-white"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -275,38 +186,23 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
               <img 
                 src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
                 alt="Grozo" 
-                className="h-18 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
+                className="h-20 w-auto object-contain"
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
-                <Home className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Home</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
-                <Package className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Orders</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
-                <Users className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Drivers</span>
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="container mx-auto px-4 py-8">
         {/* Shop Registration */}
         {showShopRegistration && (
           <Card className="bg-slate-800/50 border-slate-700 mb-8">
             <CardHeader>
-              <CardTitle className="text-white text-xl md:text-2xl">Register Your Shop</CardTitle>
-              <p className="text-slate-300 text-sm md:text-base">Please register your shop details to start receiving delivery requests</p>
+              <CardTitle className="text-white text-2xl">Register Your Shop</CardTitle>
+              <p className="text-slate-300">Please register your shop details to start receiving delivery requests</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleShopRegistration} className="space-y-4">
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="shopName" className="text-slate-300">Shop Name *</Label>
@@ -371,7 +267,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                 </div>
                 <Button 
                   type="submit" 
-                  className="bg-green-500 hover:bg-green-600 text-white w-full md:w-auto transition-all duration-300 hover:scale-105"
+                  className="bg-green-500 hover:bg-green-600 text-white w-full"
                   disabled={loading}
                 >
                   {loading ? "Registering..." : "Register Shop"}
@@ -381,17 +277,17 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
           </Card>
         )}
 
-        {/* Main Content - Only show after shop registration */}
+        {/* Main Content */}
         {!showShopRegistration && (
           <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 gap-4">
+            <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Delivery Requests</h2>
-                <p className="text-slate-300 text-sm md:text-base">Manage your delivery orders</p>
+                <h2 className="text-3xl font-bold text-white mb-2">Delivery Requests</h2>
+                <p className="text-slate-300">Manage your delivery orders</p>
               </div>
               <Button 
                 onClick={() => setShowNewRequest(true)}
-                className="bg-green-500 hover:bg-green-600 text-white w-full md:w-auto transition-all duration-300 hover:scale-105"
+                className="bg-green-500 hover:bg-green-600 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Request
@@ -406,7 +302,6 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="buyerName" className="text-slate-300">Buyer Name *</Label>
@@ -463,10 +358,10 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                         />
                       </div>
                     </div>
-                    <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3">
+                    <div className="flex space-x-3">
                       <Button 
                         type="submit" 
-                        className="bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105"
+                        className="bg-green-500 hover:bg-green-600 text-white"
                         disabled={loading}
                       >
                         {loading ? "Posting..." : "Post Request"}
@@ -475,7 +370,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                         type="button" 
                         variant="outline" 
                         onClick={() => setShowNewRequest(false)}
-                        className="border-slate-600 text-slate-300 hover:bg-slate-700 transition-all duration-300 hover:scale-105"
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
                       >
                         Cancel
                       </Button>
@@ -489,13 +384,13 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
             <div className="space-y-4">
               {requests.map((request) => (
                 <Card key={request.id} className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-4 md:p-6">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-lg md:text-xl font-semibold text-white mb-1">{request.buyer_name}</h3>
-                        <p className="text-slate-300 text-sm">{request.buyer_phone}</p>
+                        <h3 className="text-xl font-semibold text-white mb-1">{request.buyer_name}</h3>
+                        <p className="text-slate-300">{request.buyer_phone}</p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)} self-start capitalize`}>
+                      <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)} capitalize`}>
                         {request.status.replace('_', ' ')}
                       </span>
                     </div>
@@ -503,9 +398,9 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                       <div>
                         <p className="text-slate-400 text-sm">Delivery Address</p>
-                        <p className="text-white text-sm md:text-base">{request.delivery_address}</p>
+                        <p className="text-white">{request.delivery_address}</p>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:space-x-6 space-y-2 sm:space-y-0">
+                      <div className="flex space-x-6">
                         <div>
                           <p className="text-slate-400 text-sm">Total Amount</p>
                           <p className="text-white font-semibold">₹{request.total_amount}</p>
@@ -516,6 +411,15 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                         </div>
                       </div>
                     </div>
+
+                    {request.drivers && request.status === 'accepted' && (
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mt-4">
+                        <h4 className="text-green-400 font-semibold mb-2">Driver Assigned</h4>
+                        <p className="text-white">{request.drivers.full_name}</p>
+                        <p className="text-slate-300">{request.drivers.phone}</p>
+                        <p className="text-slate-400 text-sm">{request.drivers.vehicle_type}</p>
+                      </div>
+                    )}
                     
                     <p className="text-slate-400 text-sm">Posted: {new Date(request.created_at || '').toLocaleString()}</p>
                   </CardContent>
@@ -524,7 +428,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
 
               {requests.length === 0 && (
                 <Card className="bg-slate-800/30 border-slate-700">
-                  <CardContent className="p-6 md:p-8 text-center">
+                  <CardContent className="p-8 text-center">
                     <p className="text-slate-300">No delivery requests yet. Create your first request to get started!</p>
                   </CardContent>
                 </Card>

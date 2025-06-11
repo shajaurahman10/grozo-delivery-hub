@@ -2,9 +2,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, ArrowLeft, MessageCircle, Home, Users, Truck } from "lucide-react";
-import { getShops, Shop } from "@/services/database";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Phone, MapPin, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getShops, createBuyer, Shop, Buyer } from "@/services/database";
 
 interface BuyerPortalProps {
   onBack: () => void;
@@ -12,7 +14,19 @@ interface BuyerPortalProps {
 
 const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
   const [shops, setShops] = useState<Shop[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+  const [showRegistration, setShowRegistration] = useState(true);
+  const [registeredBuyer, setRegisteredBuyer] = useState<Buyer | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const [buyerData, setBuyerData] = useState({
+    full_name: "",
+    phone: "",
+    address: "",
+    city: "",
+    pincode: ""
+  });
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,9 +39,35 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
       setShops(shopsData);
     } catch (error) {
       console.error('Error loading shops:', error);
+    }
+  };
+
+  const handleBuyerRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!buyerData.full_name || !buyerData.phone || !buyerData.address) {
       toast({
         title: "Error",
-        description: "Failed to load shops",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const newBuyer = await createBuyer(buyerData);
+      setRegisteredBuyer(newBuyer);
+      setShowRegistration(false);
+      toast({
+        title: "Success",
+        description: "Profile registered successfully! You can now browse shops.",
+      });
+    } catch (error) {
+      console.error('Error registering buyer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to register profile. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -35,13 +75,12 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
     }
   };
 
-  const handleCall = (phone: string) => {
+  const handleCallShop = (phone: string, shopName: string) => {
     window.open(`tel:${phone}`, '_self');
-  };
-
-  const handleWhatsApp = (phone: string) => {
-    const cleanPhone = phone.replace(/\s+/g, '').replace('+', '');
-    window.open(`https://wa.me/${cleanPhone}`, '_blank');
+    toast({
+      title: "Calling Shop",
+      description: `Calling ${shopName}...`,
+    });
   };
 
   return (
@@ -55,7 +94,7 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={onBack}
-                className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105"
+                className="text-slate-300 hover:text-white"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -63,97 +102,143 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
               <img 
                 src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
                 alt="Grozo" 
-                className="h-18 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
+                className="h-20 w-auto object-contain"
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
-                <Home className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Home</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
-                <Users className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Shops</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
-                <Truck className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Orders</span>
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        <div className="mb-6 md:mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Local Grocery Stores</h2>
-          <p className="text-slate-300 text-sm md:text-base">Find and contact nearby stores for grocery delivery</p>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-            <p className="text-slate-300 mt-2">Loading shops...</p>
-          </div>
-        ) : shops.length === 0 ? (
-          <div className="bg-slate-800/30 rounded-xl p-4 md:p-6 max-w-2xl mx-auto text-center">
-            <h3 className="text-lg md:text-xl font-semibold text-white mb-4">No shops available yet</h3>
-            <p className="text-slate-300 mb-4 text-sm md:text-base">
-              Shopkeepers need to register their stores first. Once they do, you'll see all local shops here!
-            </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-              <div className="text-center">
-                <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-sm font-bold">1</div>
-                <p className="text-sm text-slate-300">Shops register on platform</p>
-              </div>
-              <div className="text-center">
-                <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-sm font-bold">2</div>
-                <p className="text-sm text-slate-300">Call or message the store</p>
-              </div>
-              <div className="text-center">
-                <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-sm font-bold">3</div>
-                <p className="text-sm text-slate-300">Get it delivered</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {shops.map((shop) => (
-              <Card key={shop.id} className="bg-slate-800/50 border-slate-700 hover:bg-slate-700/50 transition-all duration-300 hover:scale-105">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">{shop.shop_name}</CardTitle>
-                  <p className="text-slate-300 text-sm">{shop.owner_name}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-slate-300 text-sm">{shop.address}</p>
-                    {shop.city && (
-                      <p className="text-slate-400 text-sm">{shop.city} {shop.pincode}</p>
-                    )}
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => handleCall(shop.phone)}
-                        className="bg-green-500 hover:bg-green-600 text-white flex-1 transition-all duration-300 hover:scale-105"
-                        size="sm"
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call
-                      </Button>
-                      <Button
-                        onClick={() => handleWhatsApp(shop.phone)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white flex-1 transition-all duration-300 hover:scale-105"
-                        size="sm"
-                      >
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        WhatsApp
-                      </Button>
-                    </div>
+      <div className="container mx-auto px-4 py-8">
+        {/* Buyer Registration */}
+        {showRegistration && (
+          <Card className="bg-slate-800/50 border-slate-700 max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-white text-2xl">Register as Buyer</CardTitle>
+              <p className="text-slate-300">Complete your profile to start ordering from local shops</p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleBuyerRegistration} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="fullName" className="text-slate-300">Full Name *</Label>
+                    <Input
+                      id="fullName"
+                      value={buyerData.full_name}
+                      onChange={(e) => setBuyerData(prev => ({...prev, full_name: e.target.value}))}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
+                    />
                   </div>
+                  <div>
+                    <Label htmlFor="phone" className="text-slate-300">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      value={buyerData.phone}
+                      onChange={(e) => setBuyerData(prev => ({...prev, phone: e.target.value}))}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="address" className="text-slate-300">Address *</Label>
+                  <Input
+                    id="address"
+                    value={buyerData.address}
+                    onChange={(e) => setBuyerData(prev => ({...prev, address: e.target.value}))}
+                    className="bg-slate-700 border-slate-600 text-white"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="city" className="text-slate-300">City</Label>
+                    <Input
+                      id="city"
+                      value={buyerData.city}
+                      onChange={(e) => setBuyerData(prev => ({...prev, city: e.target.value}))}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pincode" className="text-slate-300">Pincode</Label>
+                    <Input
+                      id="pincode"
+                      value={buyerData.pincode}
+                      onChange={(e) => setBuyerData(prev => ({...prev, pincode: e.target.value}))}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                </div>
+                <Button 
+                  type="submit" 
+                  className="bg-green-500 hover:bg-green-600 text-white w-full"
+                  disabled={loading}
+                >
+                  {loading ? "Registering..." : "Register Profile"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Shop Listings */}
+        {!showRegistration && (
+          <>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-white mb-2">Local Grocery Shops</h2>
+              <p className="text-slate-300">Call the shop directly to place your order</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {shops.map((shop) => (
+                <Card key={shop.id} className="bg-slate-800/50 border-slate-700 hover:bg-slate-700/50 transition-colors">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-white mb-1">{shop.shop_name}</h3>
+                        <p className="text-slate-300 text-sm">Owner: {shop.owner_name}</p>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <span className="text-slate-300 text-sm">4.5</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <p className="text-slate-400 text-sm flex items-center">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {shop.phone}
+                      </p>
+                      <p className="text-slate-400 text-sm flex items-start">
+                        <MapPin className="w-4 h-4 mr-2 mt-0.5" />
+                        {shop.address}
+                        {shop.city && `, ${shop.city}`}
+                        {shop.pincode && ` - ${shop.pincode}`}
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={() => handleCallShop(shop.phone, shop.shop_name)}
+                      className="bg-green-500 hover:bg-green-600 text-white w-full"
+                    >
+                      <Phone className="w-4 h-4 mr-2" />
+                      Call to Order
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {shops.length === 0 && (
+              <Card className="bg-slate-800/30 border-slate-700">
+                <CardContent className="p-8 text-center">
+                  <p className="text-slate-300">No shops registered yet. Check back soon!</p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

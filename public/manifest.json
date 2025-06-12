@@ -1,0 +1,30 @@
+
+{
+  "name": "Grozo",
+  "short_name": "Grozo",
+  "description": "Get groceries delivered from local shops",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0f1c",
+  "theme_color": "#00b894",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "splash_pages": null,
+  "categories": ["food", "shopping", "lifestyle"],
+  "lang": "en-US",
+  "prefer_related_applications": false
+}

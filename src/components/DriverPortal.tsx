@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell, LogOut } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell, LogOut, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   createDriver, 
@@ -272,8 +273,9 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
+            {/* Left Section - Back Button and Logo */}
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
@@ -287,39 +289,29 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
               <img 
                 src="/lovable-uploads/97179513-c10d-4d96-ac87-a097a7fab932.png" 
                 alt="Grozo" 
-                className="h-18 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-110 hover:rotate-2 cursor-pointer"
+                className="h-12 md:h-14 w-auto object-contain transition-transform duration-300 hover:scale-110 cursor-pointer"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              {registeredDriver && (
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <p className="text-slate-300 text-sm">Driver:</p>
-                    <p className="text-white font-medium">{registeredDriver.full_name}</p>
-                  </div>
-                  <Button
-                    onClick={handleLogout}
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </Button>
-                </div>
-              )}
+
+            {/* Center Section - Navigation (Hidden on mobile) */}
+            <div className="hidden md:flex items-center space-x-2">
               <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
                 <Home className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Home</span>
+                Home
               </Button>
               <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
                 <Package className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Deliveries</span>
+                Deliveries
               </Button>
               <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
                 <Settings className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">Settings</span>
+                Settings
               </Button>
+            </div>
+
+            {/* Right Section - User Actions */}
+            <div className="flex items-center space-x-2">
+              {/* Notifications */}
               {notifications.length > 0 && (
                 <Button 
                   onClick={clearNotifications}
@@ -327,23 +319,65 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                   size="sm" 
                   className="text-yellow-400 hover:text-yellow-300 relative transition-all duration-300 hover:scale-105"
                 >
-                  <Bell className="w-4 h-4 mr-2" />
+                  <Bell className="w-4 h-4" />
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {notifications.length}
                   </span>
-                  Alerts
+                  <span className="hidden sm:inline ml-2">Alerts</span>
                 </Button>
               )}
+
+              {/* Online/Offline Toggle */}
               {!showDriverRegistration && (
                 <Button
                   onClick={handleToggleOnline}
-                  className={`${isOnline ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white text-sm transition-all duration-300 hover:scale-105`}
+                  size="sm"
+                  className={`${isOnline ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} text-white transition-all duration-300 hover:scale-105`}
                 >
-                  {isOnline ? '🟢 Online' : '🔴 Offline'}
+                  <span className={`w-2 h-2 rounded-full mr-2 ${isOnline ? 'bg-green-200' : 'bg-red-200'}`}></span>
+                  <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
+                  <span className="sm:hidden">{isOnline ? '🟢' : '🔴'}</span>
                 </Button>
+              )}
+
+              {/* User Profile & Logout */}
+              {registeredDriver && (
+                <div className="flex items-center space-x-2">
+                  <div className="hidden lg:flex items-center space-x-2">
+                    <User className="w-4 h-4 text-slate-400" />
+                    <div className="text-right">
+                      <p className="text-white font-medium text-sm">{registeredDriver.full_name}</p>
+                      <p className="text-slate-400 text-xs">Driver</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleLogout}
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="hidden sm:inline ml-2">Logout</span>
+                  </Button>
+                </div>
               )}
             </div>
           </div>
+
+          {/* Mobile Navigation - Show on small screens */}
+          {registeredDriver && (
+            <div className="md:hidden mt-3 flex items-center justify-center space-x-4 border-t border-slate-700 pt-3">
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
+                <Home className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
+                <Package className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 

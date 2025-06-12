@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Phone, MapPin, Star } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, Star, User, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getShops, createBuyer, Shop, Buyer } from "@/services/database";
+import { saveProfileToCookies, getProfileFromCookies, clearProfileFromCookies, hasStoredProfile } from "@/utils/cookies";
 
 interface BuyerPortalProps {
   onBack: () => void;
@@ -30,6 +31,16 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check for stored profile on component mount
+    const storedProfile = getProfileFromCookies('buyer');
+    if (storedProfile) {
+      setRegisteredBuyer(storedProfile.data);
+      setShowRegistration(false);
+      toast({
+        title: "Welcome back!",
+        description: `Logged in as ${storedProfile.data.full_name}`,
+      });
+    }
     loadShops();
   }, []);
 
@@ -58,10 +69,14 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
     try {
       const newBuyer = await createBuyer(buyerData);
       setRegisteredBuyer(newBuyer);
+      
+      // Save to cookies
+      saveProfileToCookies('buyer', newBuyer);
+      
       setShowRegistration(false);
       toast({
         title: "Success",
-        description: "Profile registered successfully! You can now browse shops.",
+        description: "Profile registered and saved! You won't need to enter details again.",
       });
     } catch (error) {
       console.error('Error registering buyer:', error);
@@ -73,6 +88,23 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    clearProfileFromCookies('buyer');
+    setRegisteredBuyer(null);
+    setShowRegistration(true);
+    setBuyerData({
+      full_name: "",
+      phone: "",
+      address: "",
+      city: "",
+      pincode: ""
+    });
+    toast({
+      title: "Logged out",
+      description: "Your profile has been cleared from this device.",
+    });
   };
 
   const handleCallShop = (phone: string, shopName: string) => {
@@ -105,6 +137,23 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
                 className="h-20 w-auto object-contain"
               />
             </div>
+            {registeredBuyer && (
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-slate-300 text-sm">Welcome,</p>
+                  <p className="text-white font-medium">{registeredBuyer.full_name}</p>
+                </div>
+                <Button
+                  onClick={handleLogout}
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-400 hover:text-red-300"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -115,7 +164,7 @@ const BuyerPortal = ({ onBack }: BuyerPortalProps) => {
           <Card className="bg-slate-800/50 border-slate-700 max-w-2xl mx-auto">
             <CardHeader>
               <CardTitle className="text-white text-2xl">Register as Buyer</CardTitle>
-              <p className="text-slate-300">Complete your profile to start ordering from local shops</p>
+              <p className="text-slate-300">Complete your profile to start ordering from local shops. Your details will be saved for future visits.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleBuyerRegistration} className="space-y-4">

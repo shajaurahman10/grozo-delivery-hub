@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Plus, Home, Package, Users } from "lucide-react";
+import { ArrowLeft, Plus, Home, Package, Users, LogOut, User, Phone, Car } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   createShop, 
@@ -14,6 +15,7 @@ import {
   Shop, 
   DeliveryRequest 
 } from "@/services/database";
+import { saveProfileToCookies, getProfileFromCookies, clearProfileFromCookies } from "@/utils/cookies";
 
 interface ShopkeeperPortalProps {
   onBack: () => void;
@@ -44,6 +46,19 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   });
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check for stored profile on component mount
+    const storedProfile = getProfileFromCookies('shopkeeper');
+    if (storedProfile) {
+      setRegisteredShop(storedProfile.data);
+      setShowShopRegistration(false);
+      toast({
+        title: "Welcome back!",
+        description: `Logged in as ${storedProfile.data.shop_name}`,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (registeredShop) {
@@ -89,10 +104,14 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
     try {
       const newShop = await createShop(shopData);
       setRegisteredShop(newShop);
+      
+      // Save to cookies
+      saveProfileToCookies('shopkeeper', newShop);
+      
       setShowShopRegistration(false);
       toast({
         title: "Success",
-        description: "Shop registered successfully! You can now post delivery requests.",
+        description: "Shop registered and saved! You won't need to enter details again.",
       });
     } catch (error) {
       console.error('Error registering shop:', error);
@@ -104,6 +123,25 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    clearProfileFromCookies('shopkeeper');
+    setRegisteredShop(null);
+    setShowShopRegistration(true);
+    setShopData({
+      shop_name: "",
+      owner_name: "",
+      phone: "",
+      address: "",
+      city: "",
+      pincode: ""
+    });
+    setRequests([]);
+    toast({
+      title: "Logged out",
+      description: "Your shop profile has been cleared from this device.",
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,6 +227,23 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                 className="h-20 w-auto object-contain"
               />
             </div>
+            {registeredShop && (
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-slate-300 text-sm">Shop:</p>
+                  <p className="text-white font-medium">{registeredShop.shop_name}</p>
+                </div>
+                <Button
+                  onClick={handleLogout}
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-400 hover:text-red-300"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -199,7 +254,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
           <Card className="bg-slate-800/50 border-slate-700 mb-8">
             <CardHeader>
               <CardTitle className="text-white text-2xl">Register Your Shop</CardTitle>
-              <p className="text-slate-300">Please register your shop details to start receiving delivery requests</p>
+              <p className="text-slate-300">Please register your shop details to start receiving delivery requests. Your details will be saved for future visits.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleShopRegistration} className="space-y-4">
@@ -412,16 +467,47 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                       </div>
                     </div>
 
-                    {request.drivers && request.status === 'accepted' && (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mt-4">
-                        <h4 className="text-green-400 font-semibold mb-2">Driver Assigned</h4>
-                        <p className="text-white">{request.drivers.full_name}</p>
-                        <p className="text-slate-300">{request.drivers.phone}</p>
-                        <p className="text-slate-400 text-sm">{request.drivers.vehicle_type}</p>
+                    {/* Driver Profile Display */}
+                    {request.drivers && request.status !== 'pending' && (
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-blue-400 font-semibold flex items-center">
+                            <User className="w-5 h-5 mr-2" />
+                            Driver Assigned
+                          </h4>
+                          <span className={`px-2 py-1 rounded text-xs ${getStatusColor(request.status)}`}>
+                            {request.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-white font-medium text-lg">{request.drivers.full_name}</p>
+                            <p className="text-slate-300 flex items-center mt-1">
+                              <Phone className="w-4 h-4 mr-2" />
+                              {request.drivers.phone}
+                            </p>
+                            <p className="text-slate-400 text-sm flex items-center mt-1">
+                              <Car className="w-4 h-4 mr-2" />
+                              {request.drivers.vehicle_type}
+                            </p>
+                            {request.drivers.license_number && (
+                              <p className="text-slate-400 text-sm">License: {request.drivers.license_number}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-end">
+                            <Button
+                              onClick={() => window.open(`tel:${request.drivers.phone}`, '_self')}
+                              className="bg-blue-500 hover:bg-blue-600 text-white"
+                            >
+                              <Phone className="w-4 h-4 mr-2" />
+                              Call Driver
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     )}
                     
-                    <p className="text-slate-400 text-sm">Posted: {new Date(request.created_at || '').toLocaleString()}</p>
+                    <p className="text-slate-400 text-sm mt-4">Posted: {new Date(request.created_at || '').toLocaleString()}</p>
                   </CardContent>
                 </Card>
               ))}

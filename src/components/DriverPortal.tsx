@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   createDriver, 
@@ -15,6 +15,7 @@ import {
   Driver, 
   DeliveryRequest 
 } from "@/services/database";
+import { saveProfileToCookies, getProfileFromCookies, clearProfileFromCookies } from "@/utils/cookies";
 
 interface DriverPortalProps {
   onBack: () => void;
@@ -38,6 +39,19 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
   });
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check for stored profile on component mount
+    const storedProfile = getProfileFromCookies('driver');
+    if (storedProfile) {
+      setRegisteredDriver(storedProfile.data);
+      setShowDriverRegistration(false);
+      toast({
+        title: "Welcome back!",
+        description: `Logged in as ${storedProfile.data.full_name}`,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (registeredDriver && isOnline) {
@@ -94,39 +108,6 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       setActiveDeliveries(myDeliveries);
     } catch (error) {
       console.error('Error loading active deliveries:', error);
-    }
-  };
-
-  const handleDriverRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!driverData.full_name || !driverData.phone || !driverData.vehicle_type) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const newDriver = await createDriver(driverData);
-      setRegisteredDriver(newDriver);
-      setShowDriverRegistration(false);
-      toast({
-        title: "Success",
-        description: "Driver profile registered successfully! You can now go online to accept requests.",
-      });
-    } catch (error) {
-      console.error('Error registering driver:', error);
-      toast({
-        title: "Error",
-        description: "Failed to register driver profile. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -229,6 +210,64 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
     setNotifications([]);
   };
 
+  const handleDriverRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!driverData.full_name || !driverData.phone || !driverData.vehicle_type) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const newDriver = await createDriver(driverData);
+      setRegisteredDriver(newDriver);
+      
+      // Save to cookies
+      saveProfileToCookies('driver', newDriver);
+      
+      setShowDriverRegistration(false);
+      toast({
+        title: "Success",
+        description: "Driver profile registered and saved! You won't need to enter details again.",
+      });
+    } catch (error) {
+      console.error('Error registering driver:', error);
+      toast({
+        title: "Error",
+        description: "Failed to register driver profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearProfileFromCookies('driver');
+    setRegisteredDriver(null);
+    setShowDriverRegistration(true);
+    setIsOnline(false);
+    setDriverData({
+      full_name: "",
+      phone: "",
+      vehicle_type: "",
+      license_number: "",
+      address: ""
+    });
+    setAvailableRequests([]);
+    setActiveDeliveries([]);
+    setNotifications([]);
+    toast({
+      title: "Logged out",
+      description: "Your driver profile has been cleared from this device.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
@@ -252,6 +291,23 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
               />
             </div>
             <div className="flex items-center space-x-2">
+              {registeredDriver && (
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className="text-slate-300 text-sm">Driver:</p>
+                    <p className="text-white font-medium">{registeredDriver.full_name}</p>
+                  </div>
+                  <Button
+                    onClick={handleLogout}
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                </div>
+              )}
               <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white transition-all duration-300 hover:scale-105">
                 <Home className="w-4 h-4 mr-2" />
                 <span className="hidden md:inline">Home</span>
@@ -297,7 +353,7 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
           <Card className="bg-slate-800/50 border-slate-700 max-w-2xl mx-auto">
             <CardHeader>
               <CardTitle className="text-white text-xl md:text-2xl">Register as Driver</CardTitle>
-              <p className="text-slate-300 text-sm md:text-base">Complete your profile to start accepting delivery requests</p>
+              <p className="text-slate-300 text-sm md:text-base">Complete your profile to start accepting delivery requests. Your details will be saved for future visits.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleDriverRegistration} className="space-y-4">

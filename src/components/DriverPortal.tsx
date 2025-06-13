@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell, LogOut, User } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Home, Package, Settings, Bell, LogOut, User, Car } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   createDriver, 
@@ -17,6 +16,9 @@ import {
   DeliveryRequest 
 } from "@/services/database";
 import { saveProfileToCookies, getProfileFromCookies, clearProfileFromCookies } from "@/utils/cookies";
+import OTPVerification from "./OTPVerification";
+import DeliveryMap from "./DeliveryMap";
+import { updateDriverLocation } from "@/services/database";
 
 interface DriverPortalProps {
   onBack: () => void;
@@ -40,6 +42,8 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
   });
 
   const { toast } = useToast();
+  const [showOTPVerification, setShowOTPVerification] = useState<string | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
     // Check for stored profile on component mount
@@ -89,6 +93,50 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
         channel.unsubscribe();
         clearInterval(interval);
       };
+    }
+  }, [registeredDriver, isOnline]);
+
+  // Get user's location
+  useEffect(() => {
+    if (navigator.geolocation && registeredDriver) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setDriverLocation(location);
+          
+          // Update driver location in database for active deliveries
+          if (isOnline) {
+            updateDriverLocation(registeredDriver.id!, location).catch(console.error);
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        },
+        { enableHighAccuracy: true }
+      );
+
+      // Update location every 30 seconds when online
+      const locationInterval = setInterval(() => {
+        if (isOnline && registeredDriver) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const location = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              setDriverLocation(location);
+              updateDriverLocation(registeredDriver.id!, location).catch(console.error);
+            },
+            (error) => console.error('Error updating location:', error),
+            { enableHighAccuracy: true }
+          );
+        }
+      }, 30000);
+
+      return () => clearInterval(locationInterval);
     }
   }, [registeredDriver, isOnline]);
 
@@ -168,22 +216,20 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
   };
 
   const updateDeliveryStatus = async (id: string, newStatus: DeliveryRequest['status']) => {
+    if (newStatus === "delivered") {
+      // Show OTP verification instead of directly marking as delivered
+      setShowOTPVerification(id);
+      return;
+    }
+
     try {
       await updateDeliveryRequestStatus(id, newStatus);
       
-      if (newStatus === "delivered") {
-        setActiveDeliveries(activeDeliveries.filter(delivery => delivery.id !== id));
-        toast({
-          title: "Delivery Completed! 🎉",
-          description: "Great job! Payment has been processed.",
-        });
-      } else {
-        loadActiveDeliveries();
-        toast({
-          title: "Status Updated",
-          description: `Delivery marked as ${newStatus.replace('_', ' ')}`,
-        });
-      }
+      loadActiveDeliveries();
+      toast({
+        title: "Status Updated",
+        description: `Delivery marked as ${newStatus.replace('_', ' ')}`,
+      });
     } catch (error) {
       console.error('Error updating status:', error);
       toast({
@@ -192,6 +238,15 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleOTPVerificationSuccess = () => {
+    setShowOTPVerification(null);
+    loadActiveDeliveries();
+    toast({
+      title: "Delivery Completed! 🎉",
+      description: "Great job! Payment has been processed.",
+    });
   };
 
   const handleCall = (phone: string) => {
@@ -267,6 +322,49 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
       title: "Logged out",
       description: "Your driver profile has been cleared from this device.",
     });
+  };
+
+  // Prepare map locations for active deliveries
+  const getMapLocations = () => {
+    const locations: any[] = [];
+    
+    // Add driver location
+    if (driverLocation && registeredDriver) {
+      locations.push({
+        lat: driverLocation.lat,
+        lng: driverLocation.lng,
+        name: registeredDriver.full_name,
+        type: 'driver',
+        phone: registeredDriver.phone
+      });
+    }
+    
+    // Add delivery locations
+    activeDeliveries.forEach(delivery => {
+      // Add buyer location (approximated from address - in real app you'd geocode)
+      locations.push({
+        lat: 28.6139 + (Math.random() - 0.5) * 0.1, // Sample location near Delhi
+        lng: 77.2090 + (Math.random() - 0.5) * 0.1,
+        name: delivery.buyer_name,
+        type: 'buyer',
+        phone: delivery.buyer_phone,
+        address: delivery.delivery_address
+      });
+      
+      // Add shop location if available
+      if (delivery.shops) {
+        locations.push({
+          lat: 28.6139 + (Math.random() - 0.5) * 0.1, // Sample location
+          lng: 77.2090 + (Math.random() - 0.5) * 0.1,
+          name: delivery.shops.shop_name,
+          type: 'shop',
+          phone: delivery.shops.phone,
+          address: delivery.shops.address
+        });
+      }
+    });
+    
+    return locations;
   };
 
   return (
@@ -479,6 +577,28 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
               </div>
             )}
 
+            {/* OTP Verification Modal */}
+            {showOTPVerification && (
+              <div className="mb-8">
+                <OTPVerification
+                  requestId={showOTPVerification}
+                  buyerName={activeDeliveries.find(d => d.id === showOTPVerification)?.buyer_name || "Buyer"}
+                  onVerificationSuccess={handleOTPVerificationSuccess}
+                  onCancel={() => setShowOTPVerification(null)}
+                />
+              </div>
+            )}
+
+            {/* Delivery Map */}
+            {(activeDeliveries.length > 0 || driverLocation) && (
+              <div className="mb-8">
+                <DeliveryMap
+                  locations={getMapLocations()}
+                  height="300px"
+                />
+              </div>
+            )}
+
             {/* Active Deliveries */}
             {activeDeliveries.length > 0 && (
               <div className="mb-8">
@@ -491,6 +611,9 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                           <div>
                             <h3 className="text-lg md:text-xl font-semibold text-white mb-1">Delivery for {delivery.buyer_name}</h3>
                             <p className="text-slate-300">Phone: {delivery.buyer_phone}</p>
+                            {delivery.otp_code && (
+                              <p className="text-green-400 text-sm">🔐 Buyer OTP: {delivery.otp_code}</p>
+                            )}
                           </div>
                           <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(delivery.status)} self-start capitalize`}>
                             {delivery.status.replace('_', ' ')}
@@ -541,7 +664,7 @@ const DriverPortal = ({ onBack }: DriverPortalProps) => {
                               onClick={() => updateDeliveryStatus(delivery.id!, "delivered")}
                               className="bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105"
                             >
-                              Mark as Delivered
+                              Complete Delivery (OTP Required)
                             </Button>
                           )}
                         </div>

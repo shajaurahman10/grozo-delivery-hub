@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase'
 
 export interface Buyer {
@@ -47,6 +46,10 @@ export interface DeliveryRequest {
   delivery_charge: number
   status: 'pending' | 'accepted' | 'picked_up' | 'delivered'
   driver_id?: string
+  otp_code?: string
+  buyer_location?: { lat: number; lng: number }
+  shop_location?: { lat: number; lng: number }
+  driver_location?: { lat: number; lng: number }
   created_at?: string
   updated_at?: string
   shops?: Shop
@@ -142,17 +145,80 @@ export const getDriverById = async (driverId: string) => {
   return data
 }
 
-// Delivery request operations
+// Generate random 4-digit OTP
+export const generateOTP = () => {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+// Updated delivery request operations
 export const createDeliveryRequest = async (requestData: Omit<DeliveryRequest, 'id' | 'created_at' | 'updated_at'>) => {
+  const otpCode = generateOTP();
   const { data, error } = await supabase
     .from('delivery_requests')
-    .insert([{ ...requestData, status: 'pending' }])
+    .insert([{ ...requestData, status: 'pending', otp_code: otpCode }])
     .select(`
       *,
       shops:shop_id(*),
       drivers:driver_id(*)
     `)
     .single()
+  
+  if (error) throw error
+  return data
+}
+
+// Update driver location
+export const updateDriverLocation = async (driverId: string, location: { lat: number; lng: number }) => {
+  const { data, error } = await supabase
+    .from('delivery_requests')
+    .update({ driver_location: location })
+    .eq('driver_id', driverId)
+    .in('status', ['accepted', 'picked_up'])
+    .select()
+  
+  if (error) throw error
+  return data
+}
+
+// Verify OTP for delivery
+export const verifyDeliveryOTP = async (requestId: string, enteredOTP: string) => {
+  const { data, error } = await supabase
+    .from('delivery_requests')
+    .select('otp_code')
+    .eq('id', requestId)
+    .single()
+  
+  if (error) throw error
+  
+  if (data.otp_code === enteredOTP) {
+    const { data: updatedData, error: updateError } = await supabase
+      .from('delivery_requests')
+      .update({ status: 'delivered' })
+      .eq('id', requestId)
+      .select(`
+        *,
+        shops:shop_id(*),
+        drivers:driver_id(*)
+      `)
+      .single()
+    
+    if (updateError) throw updateError
+    return { success: true, data: updatedData }
+  } else {
+    return { success: false, message: 'Invalid OTP' }
+  }
+}
+
+// Clean up old delivery requests (24+ hours old)
+export const cleanupOldRequests = async () => {
+  const twentyFourHoursAgo = new Date();
+  twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+  
+  const { data, error } = await supabase
+    .from('delivery_requests')
+    .delete()
+    .lt('created_at', twentyFourHoursAgo.toISOString())
+    .in('status', ['pending', 'delivered'])
   
   if (error) throw error
   return data

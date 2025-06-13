@@ -1,4 +1,3 @@
-
 -- Drop existing tables if they exist (to avoid conflicts)
 DROP TABLE IF EXISTS delivery_requests CASCADE;
 DROP TABLE IF EXISTS drivers CASCADE;
@@ -42,6 +41,7 @@ CREATE TABLE drivers (
   license_number TEXT,
   address TEXT,
   is_online BOOLEAN DEFAULT FALSE,
+  driver_location JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

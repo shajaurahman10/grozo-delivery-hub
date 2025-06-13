@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +15,7 @@ import {
   DeliveryRequest 
 } from "@/services/database";
 import { saveProfileToCookies, getProfileFromCookies, clearProfileFromCookies } from "@/utils/cookies";
+import LocationPicker from './LocationPicker';
 
 interface ShopkeeperPortalProps {
   onBack: () => void;
@@ -46,6 +46,20 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   });
 
   const { toast } = useToast();
+  
+  const [deliveryLocation, setDeliveryLocation] = useState<{
+    address: string;
+    coordinates: { lat: number; lng: number };
+    city: string;
+    area: string;
+  } | null>(null);
+
+  const [shopLocation, setShopLocation] = useState<{
+    address: string;
+    coordinates: { lat: number; lng: number };
+    city: string;
+    area: string;
+  } | null>(null);
 
   useEffect(() => {
     // Check for stored profile on component mount
@@ -91,7 +105,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   const handleShopRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!shopData.shop_name || !shopData.owner_name || !shopData.phone || !shopData.address) {
+    if (!shopData.shop_name || !shopData.owner_name || !shopData.phone) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -100,9 +114,22 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
       return;
     }
 
+    if (!shopLocation) {
+      toast({
+        title: "Error",
+        description: "Please select your shop location",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const newShop = await createShop(shopData);
+      const newShop = await createShop({
+        ...shopData,
+        address: shopLocation.address,
+        city: shopLocation.city
+      });
       setRegisteredShop(newShop);
       
       // Save to cookies
@@ -147,10 +174,19 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.buyer_name || !formData.buyer_phone || !formData.delivery_address || !formData.total_amount) {
+    if (!formData.buyer_name || !formData.buyer_phone || !formData.total_amount) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!deliveryLocation) {
+      toast({
+        title: "Error",
+        description: "Please select delivery location",
         variant: "destructive"
       });
       return;
@@ -163,10 +199,12 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
         shop_id: registeredShop?.id,
         buyer_name: formData.buyer_name,
         buyer_phone: formData.buyer_phone,
-        delivery_address: formData.delivery_address,
+        delivery_address: deliveryLocation.address,
         total_amount: parseFloat(formData.total_amount),
         delivery_charge: parseFloat(formData.delivery_charge) || 30,
-        status: 'pending'
+        status: 'pending',
+        buyer_location: deliveryLocation.coordinates,
+        shop_location: shopLocation?.coordinates || { lat: 0, lng: 0 }
       });
 
       await loadDeliveryRequests();
@@ -177,17 +215,18 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
         total_amount: "",
         delivery_charge: ""
       });
+      setDeliveryLocation(null);
       setShowNewRequest(false);
 
       toast({
         title: "Success",
-        description: "Delivery request posted successfully! Drivers will be notified.",
+        description: `Delivery request posted! Found drivers within 3km radius.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating request:', error);
       toast({
         title: "Error",
-        description: "Failed to create delivery request. Please try again.",
+        description: error.message || "Failed to create delivery request. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -257,7 +296,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
               <p className="text-slate-300">Please register your shop details to start receiving delivery requests. Your details will be saved for future visits.</p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleShopRegistration} className="space-y-4">
+              <form onSubmit={handleShopRegistration} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="shopName" className="text-slate-300">Shop Name *</Label>
@@ -280,50 +319,29 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="phone" className="text-slate-300">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      value={shopData.phone}
-                      onChange={(e) => setShopData(prev => ({...prev, phone: e.target.value}))}
-                      className="bg-slate-700 border-slate-600 text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="pincode" className="text-slate-300">Pincode</Label>
-                    <Input
-                      id="pincode"
-                      value={shopData.pincode}
-                      onChange={(e) => setShopData(prev => ({...prev, pincode: e.target.value}))}
-                      className="bg-slate-700 border-slate-600 text-white"
-                    />
-                  </div>
-                </div>
                 <div>
-                  <Label htmlFor="address" className="text-slate-300">Shop Address *</Label>
+                  <Label htmlFor="phone" className="text-slate-300">Phone Number *</Label>
                   <Input
-                    id="address"
-                    value={shopData.address}
-                    onChange={(e) => setShopData(prev => ({...prev, address: e.target.value}))}
+                    id="phone"
+                    value={shopData.phone}
+                    onChange={(e) => setShopData(prev => ({...prev, phone: e.target.value}))}
                     className="bg-slate-700 border-slate-600 text-white"
                     required
                   />
                 </div>
+                
+                {/* Shop Location Picker */}
                 <div>
-                  <Label htmlFor="city" className="text-slate-300">City</Label>
-                  <Input
-                    id="city"
-                    value={shopData.city}
-                    onChange={(e) => setShopData(prev => ({...prev, city: e.target.value}))}
-                    className="bg-slate-700 border-slate-600 text-white"
+                  <LocationPicker
+                    onLocationSelect={setShopLocation}
+                    placeholder="Select Your Shop Location"
                   />
                 </div>
+                
                 <Button 
                   type="submit" 
                   className="bg-green-500 hover:bg-green-600 text-white w-full"
-                  disabled={loading}
+                  disabled={loading || !shopLocation}
                 >
                   {loading ? "Registering..." : "Register Shop"}
                 </Button>
@@ -354,9 +372,10 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
               <Card className="bg-slate-800/50 border-slate-700 mb-8">
                 <CardHeader>
                   <CardTitle className="text-white">Create Delivery Request</CardTitle>
+                  <p className="text-slate-300">Only drivers within 3km radius will receive this request</p>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="buyerName" className="text-slate-300">Buyer Name *</Label>
@@ -379,16 +398,22 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                         />
                       </div>
                     </div>
+                    
+                    {/* Delivery Location Picker */}
                     <div>
-                      <Label htmlFor="deliveryAddress" className="text-slate-300">Delivery Address *</Label>
-                      <Input
-                        id="deliveryAddress"
-                        value={formData.delivery_address}
-                        onChange={(e) => setFormData(prev => ({...prev, delivery_address: e.target.value}))}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        required
+                      <LocationPicker
+                        onLocationSelect={setDeliveryLocation}
+                        placeholder="Select Delivery Location"
                       />
+                      {deliveryLocation && (
+                        <div className="mt-2 p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                          <p className="text-green-400 text-sm">
+                            📍 Selected: {deliveryLocation.address}
+                          </p>
+                        </div>
+                      )}
                     </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="totalAmount" className="text-slate-300">Total Amount (₹) *</Label>
@@ -417,7 +442,7 @@ const ShopkeeperPortal = ({ onBack }: ShopkeeperPortalProps) => {
                       <Button 
                         type="submit" 
                         className="bg-green-500 hover:bg-green-600 text-white"
-                        disabled={loading}
+                        disabled={loading || !deliveryLocation}
                       >
                         {loading ? "Posting..." : "Post Request"}
                       </Button>

@@ -124,6 +124,8 @@ export const updateDriverStatus = async (driverId: string, isOnline: boolean) =>
   return data
 }
 
+import { calculateDistance, isWithinDeliveryRadius, findNearbyDrivers, Location } from '@/utils/location';
+
 export const getOnlineDrivers = async () => {
   const { data, error } = await supabase
     .from('drivers')
@@ -134,12 +136,58 @@ export const getOnlineDrivers = async () => {
   return data || []
 }
 
-export const getDriverById = async (driverId: string) => {
+// Get nearby online drivers within 3km radius
+export const getNearbyOnlineDrivers = async (deliveryLocation: Location) => {
   const { data, error } = await supabase
     .from('drivers')
     .select('*')
+    .eq('is_online', true)
+  
+  if (error) throw error
+  
+  if (!data) return []
+  
+  // Filter drivers by location proximity
+  const nearbyDrivers = data
+    .filter(driver => {
+      if (!driver.driver_location) return false
+      
+      const driverLocation = {
+        lat: driver.driver_location.lat,
+        lng: driver.driver_location.lng
+      }
+      
+      return isWithinDeliveryRadius(driverLocation, deliveryLocation)
+    })
+    .map(driver => ({
+      ...driver,
+      distance: calculateDistance(
+        { lat: driver.driver_location.lat, lng: driver.driver_location.lng },
+        deliveryLocation
+      )
+    }))
+    .sort((a, b) => a.distance - b.distance) // Sort by nearest first
+  
+  return nearbyDrivers
+}
+
+// Update driver location (real-time tracking)
+export const updateDriverLocation = async (driverId: string, location: Location) => {
+  // Update driver's current location in drivers table
+  const { error: driverError } = await supabase
+    .from('drivers')
+    .update({ driver_location: location })
     .eq('id', driverId)
-    .single()
+  
+  if (driverError) throw driverError
+
+  // Also update location in active delivery requests
+  const { data, error } = await supabase
+    .from('delivery_requests')
+    .update({ driver_location: location })
+    .eq('driver_id', driverId)
+    .in('status', ['accepted', 'picked_up'])
+    .select()
   
   if (error) throw error
   return data
@@ -150,9 +198,21 @@ export const generateOTP = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-// Updated delivery request operations
+// Create delivery request with location-based driver filtering
 export const createDeliveryRequest = async (requestData: Omit<DeliveryRequest, 'id' | 'created_at' | 'updated_at'>) => {
   const otpCode = generateOTP();
+  
+  // Check if there are nearby drivers before creating the request
+  if (requestData.buyer_location) {
+    const nearbyDrivers = await getNearbyOnlineDrivers(requestData.buyer_location);
+    
+    if (nearbyDrivers.length === 0) {
+      throw new Error('No drivers available in your area (3km radius). Please try again later.');
+    }
+    
+    console.log(`Found ${nearbyDrivers.length} nearby drivers within 3km`);
+  }
+  
   const { data, error } = await supabase
     .from('delivery_requests')
     .insert([{ ...requestData, status: 'pending', otp_code: otpCode }])
@@ -162,19 +222,6 @@ export const createDeliveryRequest = async (requestData: Omit<DeliveryRequest, '
       drivers:driver_id(*)
     `)
     .single()
-  
-  if (error) throw error
-  return data
-}
-
-// Update driver location
-export const updateDriverLocation = async (driverId: string, location: { lat: number; lng: number }) => {
-  const { data, error } = await supabase
-    .from('delivery_requests')
-    .update({ driver_location: location })
-    .eq('driver_id', driverId)
-    .in('status', ['accepted', 'picked_up'])
-    .select()
   
   if (error) throw error
   return data

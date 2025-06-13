@@ -46,7 +46,7 @@ CREATE TABLE drivers (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create delivery_requests table with proper foreign key references
+-- Create delivery_requests table with OTP support and location fields
 CREATE TABLE delivery_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   shop_id UUID REFERENCES shops(id) ON DELETE CASCADE,
@@ -58,6 +58,10 @@ CREATE TABLE delivery_requests (
   delivery_charge DECIMAL(10,2) NOT NULL,
   status TEXT CHECK (status IN ('pending', 'accepted', 'picked_up', 'delivered')) DEFAULT 'pending',
   driver_id UUID REFERENCES drivers(id) ON DELETE SET NULL,
+  otp_code TEXT,
+  buyer_location JSONB,
+  shop_location JSONB,
+  driver_location JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
